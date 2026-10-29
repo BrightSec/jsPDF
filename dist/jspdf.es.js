@@ -1,7 +1,7 @@
 /** @license
  *
  * jsPDF - PDF Document creation from JavaScript
- * Version 4.2.1 Built on 2026-10-29T06:39:40.861Z
+ * Version 4.2.1 Built on 2026-10-29T09:37:26.221Z
  *                      CommitID 00000000
  *
  * Copyright (c) 2010-2025 James Hall <james@parall.ax>, https://github.com/MrRio/jsPDF
@@ -11173,7 +11173,9 @@ function parseFontFamily(input) {
     this.context2d.lastBreak = 0;
     this.context2d.pageBreaks = [];
 
-    // custom: limit q/Q writes to pages reachable by the current render (current page minus one as safety margin);
+    // custom: limit q/Q writes to pages the current render can draw on. A render starts on the current page
+    // (pageNumber is 1-based, so its 0-based index is pageNumber - 1) and html content flows downwards, but it can
+    // overshoot upwards onto the previous page (negative margins, shadows, borders), hence the extra page: pageNumber - 2.
     // html2canvas leaves save/restore balanced after each render, so all savedCtxPageMap counters are 0 here
     this.context2d.firstRenderPageIndex = Math.max(0, this.internal.getCurrentPageInfo().pageNumber - 2);
     this.context2d.savedCtxPageMap = new Map();

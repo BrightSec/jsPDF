@@ -113,6 +113,25 @@ describe("Module: Context2D save/restore page scope", () => {
     }
   });
 
+  it("wraps drawing that overshoots onto the previous page in q and Q", () => {
+    var doc = createDoc(PAGE_COUNT);
+    doc.internal.events.publish("resetContext2D");
+    var ctx = doc.context2d;
+    ctx.autoPaging = true;
+    var previousPage = PAGE_COUNT - 1;
+    var pageHeight = doc.internal.pageSize.getHeight();
+
+    ctx.save();
+    ctx.fillRect(10, (previousPage - 1) * pageHeight + 100, 50, 50);
+    ctx.restore();
+
+    var content = doc.internal.pages[previousPage];
+    var drawIndex = content.indexOf("f");
+    expect(drawIndex).toBeGreaterThan(-1);
+    expect(content.indexOf("q")).toBeLessThan(drawIndex);
+    expect(content.lastIndexOf("Q")).toBeGreaterThan(drawIndex);
+  });
+
   it("keeps nested save/restore balanced", () => {
     var doc = createDoc(PAGE_COUNT);
     doc.internal.events.publish("resetContext2D");
