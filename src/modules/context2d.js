@@ -101,6 +101,14 @@ import {
       this.context2d.autoPaging = false;
       this.context2d.lastBreak = 0;
       this.context2d.pageBreaks = [];
+
+      // custom: limit q/Q writes to pages reachable by the current render (current page minus one as safety margin);
+      // html2canvas leaves save/restore balanced after each render, so all savedCtxPageMap counters are 0 here
+      this.context2d.firstRenderPageIndex = Math.max(
+        0,
+        this.internal.getCurrentPageInfo().pageNumber - 2
+      );
+      this.context2d.savedCtxPageMap = new Map();
     }
   ]);
 
@@ -749,6 +757,9 @@ import {
 
     // custom: map (pageIdx => number) of saved graphic contexts (q) to avoid unpaired restore (Q) on auto-paging
     this.savedCtxPageMap = new Map();
+
+    // custom: 0-based index of the first page the current html render can draw on (see resetContext2D)
+    this.firstRenderPageIndex = 0;
   };
 
   /**
@@ -1182,7 +1193,11 @@ import {
   Context2D.prototype.save = function(doStackPush) {
     doStackPush = typeof doStackPush === "boolean" ? doStackPush : true;
     var tmpPageNumber = this.pdf.internal.getCurrentPageInfo().pageNumber;
-    for (var i = 0; i < this.pdf.internal.getNumberOfPages(); i++) {
+    for (
+      var i = this.firstRenderPageIndex;
+      i < this.pdf.internal.getNumberOfPages();
+      i++
+    ) {
       this.pdf.setPage(i + 1);
       this.pdf.internal.out("q");
 
@@ -1207,16 +1222,13 @@ import {
   Context2D.prototype.restore = function(doStackPop) {
     doStackPop = typeof doStackPop === "boolean" ? doStackPop : true;
     var tmpPageNumber = this.pdf.internal.getCurrentPageInfo().pageNumber;
-    for (var i = 0; i < this.pdf.internal.getNumberOfPages(); i++) {
-      if (this.savedCtxPageMap.get(i) > 0) {
-        this.savedCtxPageMap.set(i, this.savedCtxPageMap.get(i) - 1);
-      } else {
-        continue;
+    this.savedCtxPageMap.forEach(function(count, pageIdx, map) {
+      if (count > 0) {
+        map.set(pageIdx, count - 1);
+        this.pdf.setPage(pageIdx + 1);
+        this.pdf.internal.out("Q");
       }
-
-      this.pdf.setPage(i + 1);
-      this.pdf.internal.out("Q");
-    }
+    }, this);
     this.pdf.setPage(tmpPageNumber);
 
     if (doStackPop && this.ctxStack.length !== 0) {
